@@ -48,6 +48,7 @@ func (h *GetPodValuesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		End:       *req.EndRange,
 		PodPrefix: req.MatchPrefix,
 		Revision:  req.Revision,
+		Namespace: req.Namespace,
 	})
 
 	if err != nil {

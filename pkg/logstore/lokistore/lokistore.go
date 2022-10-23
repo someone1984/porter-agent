@@ -197,7 +197,7 @@ func (store *LokiStore) getPorterPodNameSplitIndex(options logstore.LabelValueOp
 			// strip the candidate pod with understore
 			splStr := strings.Split(candidatePod, "_")
 
-			if len(splStr) == 2 {
+			if len(splStr) == 3 {
 				resp = append(resp, splStr[index])
 			}
 		}
