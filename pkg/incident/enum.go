@@ -49,6 +49,9 @@ type EventMatch struct {
 	// ShouldViewLogs refers to whether logs would be useful in order to debug this event. For events
 	// that require more application context (oom killed, non-zero exit code), logs could be helpful.
 	ShouldViewLogs bool
+
+	// (optional) DocLink contains a link to the Porter documentation for common errors.
+	DocLink string
 }
 
 var EventEnum map[KubernetesVersion][]EventMatch
@@ -72,6 +75,7 @@ func init() {
 		),
 		IsPrimaryCause: true,
 		ShouldViewLogs: true,
+		DocLink:        "https://docs.porter.run/managing-applications/application-troubleshooting#failing-liveness-or-startup-probes",
 	})
 
 	eventMatch1_20 = append(eventMatch1_20, EventMatch{
@@ -84,6 +88,7 @@ func init() {
 		),
 		IsPrimaryCause: true,
 		ShouldViewLogs: true,
+		DocLink:        "https://docs.porter.run/managing-applications/application-troubleshooting#failing-liveness-or-startup-probes",
 	})
 
 	eventMatch1_20 = append(eventMatch1_20, EventMatch{
@@ -107,6 +112,7 @@ func init() {
 		ReasonMatch:    "Failed",
 		MessageMatch:   regexp.MustCompile("Failed to pull image.*"),
 		IsPrimaryCause: true,
+		DocLink:        "https://docs.porter.run/managing-applications/application-troubleshooting#image-pull-errors",
 	})
 
 	eventMatch1_20 = append(eventMatch1_20, EventMatch{
@@ -119,6 +125,7 @@ func init() {
 		MessageMatch:   regexp.MustCompile("Back-off restarting failed container"),
 		IsPrimaryCause: true,
 		ShouldViewLogs: true,
+		DocLink:        "https://docs.porter.run/managing-applications/application-troubleshooting#application-issues-and-non-zero-exit-codes",
 	})
 
 	eventMatch1_20 = append(eventMatch1_20, EventMatch{
@@ -131,6 +138,7 @@ func init() {
 		MessageMatch:   regexp.MustCompile(".*"),
 		IsPrimaryCause: true,
 		ShouldViewLogs: true,
+		DocLink:        "https://docs.porter.run/managing-applications/application-troubleshooting#application-issues-and-non-zero-exit-codes",
 	})
 
 	eventMatch1_20 = append(eventMatch1_20, EventMatch{
@@ -141,6 +149,7 @@ func init() {
 		MessageMatch:    regexp.MustCompile(".*"),
 		IsPrimaryCause:  true,
 		ShouldViewLogs:  true,
+		DocLink:         "https://docs.porter.run/managing-applications/application-troubleshooting#memory-usage",
 	})
 
 	eventMatch1_20 = append(eventMatch1_20, EventMatch{
@@ -152,6 +161,7 @@ func init() {
 		ReasonMatch:    "ImagePullBackOff",
 		MessageMatch:   regexp.MustCompile(".*"),
 		IsPrimaryCause: true,
+		DocLink:        "https://docs.porter.run/managing-applications/application-troubleshooting#image-pull-errors",
 	})
 
 	eventMatch1_20 = append(eventMatch1_20, EventMatch{
@@ -163,6 +173,7 @@ func init() {
 		ReasonMatch:    "ErrImagePull",
 		MessageMatch:   regexp.MustCompile(".*"),
 		IsPrimaryCause: true,
+		DocLink:        "https://docs.porter.run/managing-applications/application-troubleshooting#image-pull-errors",
 	})
 
 	eventMatch1_20 = append(eventMatch1_20, EventMatch{
@@ -185,6 +196,7 @@ func init() {
 		ReasonMatch:    "ContainerCannotRun",
 		MessageMatch:   regexp.MustCompile(".*executable file not found in.*"),
 		IsPrimaryCause: true,
+		DocLink:        "https://docs.porter.run/managing-applications/application-troubleshooting#start-command",
 	})
 
 	eventMatch1_20 = append(eventMatch1_20, EventMatch{

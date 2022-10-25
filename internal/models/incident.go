@@ -34,6 +34,8 @@ type Incident struct {
 
 	ShouldViewLogs bool
 
+	PorterDocLink string
+
 	Revision string
 
 	Severity types.SeverityType
@@ -74,6 +76,7 @@ func (i *Incident) ToAPITypeMeta() *types.IncidentMeta {
 		ShortSummary:            i.GetInternalSummary(),
 		ShouldViewLogs:          i.ShouldViewLogs,
 		Revision:                i.Revision,
+		PorterDocLink:           i.PorterDocLink,
 	}
 }
 
