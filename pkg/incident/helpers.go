@@ -84,6 +84,7 @@ func getIncidentMetaFromEvent(e *event.FilteredEvent, match *EventMatch) *models
 	res.Severity = types.SeverityType(e.Severity)
 	res.ShouldViewLogs = match.ShouldViewLogs
 	res.Revision = e.Owner.Revision
+	res.PorterDocLink = match.DocLink
 
 	if e.Timestamp == nil || e.Timestamp.IsZero() {
 		lastSeen := time.Now()
