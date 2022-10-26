@@ -3,6 +3,7 @@ package event
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -349,10 +350,52 @@ func NewFilteredEventsFromPod(pod *v1.Pod) []*FilteredEvent {
 					})
 				}
 			}
+
+			// we look for a terminated sidecar container to see if the job sidecar ran for approximately the timeout
+			// period. if it did, we generate a new filtered event to indicate that the job got close to it's timeout
+			if containerStatus.Name == "sidecar" {
+				if termState := containerStatus.State.Terminated; termState != nil {
+					startTime := pod.Status.StartTime.Time
+					endTime := termState.FinishedAt.Time
+					timeoutValue := getPodSidecarTimeoutValue(pod)
+
+					// if the end time minus the start time is greater than the timeout period (with a 30 second buffer),
+					// we generate a new timeout event for the job
+					if endTime.Sub(startTime).Seconds() >= timeoutValue-30 {
+						res = append(res, &FilteredEvent{
+							Source:            Pod,
+							PodName:           pod.Name,
+							PodNamespace:      pod.Namespace,
+							KubernetesReason:  "Timeout",
+							KubernetesMessage: fmt.Sprintf("Your job exceeded its timeout value of %.0f. You can increase this timeout value from the Advanced tab.", timeoutValue),
+							Severity:          EventSeverityHigh,
+							Timestamp:         &termState.FinishedAt.Time,
+						})
+					}
+				}
+			}
 		}
 	}
 
 	return res
+}
+
+func getPodSidecarTimeoutValue(pod *v1.Pod) float64 {
+	for _, container := range pod.Spec.Containers {
+		if container.Name == "sidecar" {
+			for _, envVal := range container.Env {
+				if envVal.Name == "TIMEOUT" {
+					if timeout, err := strconv.ParseFloat(envVal.Value, 64); err == nil && timeout != 0 {
+						return timeout
+					}
+				}
+			}
+		}
+	}
+
+	// if not set, use the default from the sidecar service
+	// ref: https://github.com/porter-dev/porter/blob/06c311fa749406580a1e5be873a710c0914a6171/services/job_sidecar_container/job_killer.sh#L37
+	return 3600
 }
 
 func getEventFromTerminationState(podName, podNamespace string, termState *v1.ContainerStateTerminated) *FilteredEvent {
