@@ -29,6 +29,7 @@ const (
 	OutOfMemory               EventMatchSummary = "The application ran out of memory"
 	InvalidImage              EventMatchSummary = "The application has an invalid image"
 	InvalidStartCommand       EventMatchSummary = "The application has an invalid start command"
+	JobTimeout                EventMatchSummary = "The job timed out"
 	GenericApplicationRestart EventMatchSummary = "The application was restarted due to an error"
 )
 
@@ -55,7 +56,6 @@ type EventMatch struct {
 }
 
 var EventEnum map[KubernetesVersion][]EventMatch
-var PrimaryCauseCandidates map[EventMatchSummary][]EventMatchSummary
 
 func init() {
 	EventEnum = make(map[KubernetesVersion][]EventMatch)
@@ -109,8 +109,14 @@ func init() {
 		DetailGenerator: func(e *event.FilteredEvent) string {
 			return fmt.Sprintf("Your application cannot pull from the image registry. Details: %s", e.KubernetesMessage)
 		},
-		ReasonMatch:    "Failed",
-		MessageMatch:   regexp.MustCompile("Failed to pull image.*"),
+		ReasonMatch:  "Failed",
+		MessageMatch: regexp.MustCompile("Failed to pull image.*"),
+		MatchFunc: func(e *event.FilteredEvent, k8sClient *kubernetes.Clientset) bool {
+			// we don't want to match events with failing images from the job-sidecar container -
+			// this typically indicates a rate limit or connection issue from ECR and we still treat
+			// the sidecar as an optional process
+			return !strings.Contains(e.KubernetesMessage, "public.ecr.aws/o1j4x7p4/job-sidecar")
+		},
 		IsPrimaryCause: true,
 		DocLink:        "https://docs.porter.run/managing-applications/application-troubleshooting#image-pull-errors",
 	})
@@ -126,6 +132,16 @@ func init() {
 		IsPrimaryCause: true,
 		ShouldViewLogs: true,
 		DocLink:        "https://docs.porter.run/managing-applications/application-troubleshooting#application-issues-and-non-zero-exit-codes",
+	})
+
+	eventMatch1_20 = append(eventMatch1_20, EventMatch{
+		SourceMatch: event.Pod,
+		Summary:     JobTimeout,
+		DetailGenerator: func(e *event.FilteredEvent) string {
+			return e.KubernetesMessage
+		},
+		ReasonMatch:    "Timeout",
+		IsPrimaryCause: true,
 	})
 
 	eventMatch1_20 = append(eventMatch1_20, EventMatch{
@@ -212,13 +228,6 @@ func init() {
 	})
 
 	EventEnum[KubernetesVersion_1_20] = eventMatch1_20
-
-	PrimaryCauseCandidates = make(map[EventMatchSummary][]EventMatchSummary)
-	PrimaryCauseCandidates[GenericApplicationRestart] = []EventMatchSummary{
-		FailingHealthCheck,
-		NonZeroExitCode,
-		OutOfMemory,
-	}
 }
 
 func GetEventMatchFromEvent(k8sVersion KubernetesVersion, k8sClient *kubernetes.Clientset, filteredEvent *event.FilteredEvent) *EventMatch {

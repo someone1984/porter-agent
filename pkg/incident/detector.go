@@ -276,6 +276,8 @@ func (d *IncidentDetector) mergeWithMatchingIncident(incident *models.Incident, 
 		return nil
 	}
 
+	d.Logger.Info().Caller().Msgf("found %d matching candidates for incident %s", len(candidateMatches), incident.UniqueID)
+
 	var primaryCauseSummary string
 
 	for _, currIncidentEvent := range incident.Events {
