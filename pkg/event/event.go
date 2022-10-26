@@ -278,8 +278,16 @@ func NewFilteredEventsFromPod(pod *v1.Pod) []*FilteredEvent {
 		}
 	}
 
+	isJob := len(pod.ObjectMeta.OwnerReferences) > 0 && pod.ObjectMeta.OwnerReferences[0].Kind == "Job"
+
 	// if one or more containers failed to start, we generate a set of events
 	for _, containerStatus := range pod.Status.ContainerStatuses {
+		// if the pod's owner reference is a job and the container is sidecar, we ignore waiting and terminated conditions, as the sidecar
+		// is treated as an optional process
+		if isJob && containerStatus.Name == "sidecar" {
+			continue
+		}
+
 		// if the container is currently in a waiting state, we check to see if the last state is terminated -
 		// if so, we generate an event
 		if waitingState := containerStatus.State.Waiting; waitingState != nil {
@@ -315,7 +323,7 @@ func NewFilteredEventsFromPod(pod *v1.Pod) []*FilteredEvent {
 
 	// if the pod is owned by a job, we add low-severity filtered events to indicate when the job has started and
 	// completed. These events will be de-duplicated by the caller.
-	if len(pod.ObjectMeta.OwnerReferences) > 0 && pod.ObjectMeta.OwnerReferences[0].Kind == "Job" {
+	if isJob {
 		for _, containerStatus := range pod.Status.ContainerStatuses {
 			// we look explicitly for the `job` container
 			if containerStatus.Name == "job" {

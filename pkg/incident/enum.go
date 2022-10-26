@@ -109,8 +109,14 @@ func init() {
 		DetailGenerator: func(e *event.FilteredEvent) string {
 			return fmt.Sprintf("Your application cannot pull from the image registry. Details: %s", e.KubernetesMessage)
 		},
-		ReasonMatch:    "Failed",
-		MessageMatch:   regexp.MustCompile("Failed to pull image.*"),
+		ReasonMatch:  "Failed",
+		MessageMatch: regexp.MustCompile("Failed to pull image.*"),
+		MatchFunc: func(e *event.FilteredEvent, k8sClient *kubernetes.Clientset) bool {
+			// we don't want to match events with failing images from the job-sidecar container -
+			// this typically indicates a rate limit or connection issue from ECR and we still treat
+			// the sidecar as an optional process
+			return !strings.Contains(e.KubernetesMessage, "public.ecr.aws/o1j4x7p4/job-sidecar")
+		},
 		IsPrimaryCause: true,
 		DocLink:        "https://docs.porter.run/managing-applications/application-troubleshooting#image-pull-errors",
 	})
