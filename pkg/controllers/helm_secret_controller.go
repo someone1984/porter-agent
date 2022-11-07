@@ -40,7 +40,7 @@ func (h *HelmSecretController) Start() {
 	h.startedAt = &started
 
 	tweakListOptionsFunc := func(options *metav1.ListOptions) {
-		options.LabelSelector = "owner=helm"
+		options.LabelSelector = "owner=helm,status=deployed"
 	}
 
 	factory := informers.NewSharedInformerFactoryWithOptions(
