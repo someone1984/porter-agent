@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/porter-dev/porter-agent/pkg/receiver"
 	"net/http"
 	"os"
 	"time"
@@ -195,6 +196,7 @@ func main() {
 
 	r.Method("GET", "/incidents", incidentHandlers.NewListIncidentsHandler(conf))
 
+	r.Method("POST", "/incidents/alert", receiver.NewHTTP(conf))
 	r.Method("GET", "/incidents", incidentHandlers.NewListIncidentsHandler(conf))
 	r.Method("GET", "/incidents/{uid}", incidentHandlers.NewGetIncidentHandler(conf))
 	r.Method("GET", "/incidents/events", incidentHandlers.NewListIncidentEventsHandler(conf))
