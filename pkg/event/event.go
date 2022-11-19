@@ -7,11 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/porter-dev/porter-agent/api/server/types"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/porter-dev/porter-agent/api/server/types"
+	alertmanager "github.com/prometheus/alertmanager/notify/webhook"
 )
 
 type EventSeverity string
@@ -25,8 +26,9 @@ const (
 type EventSource string
 
 const (
-	Pod      EventSource = "pod"
-	K8sEvent EventSource = "event"
+	Pod          EventSource = "pod"
+	K8sEvent     EventSource = "event"
+	AlertManager EventSource = "alert-manager"
 )
 
 type FilteredEvent struct {
@@ -375,6 +377,29 @@ func NewFilteredEventsFromPod(pod *v1.Pod) []*FilteredEvent {
 				}
 			}
 		}
+	}
+
+	return res
+}
+
+// NewFilteredEventsFromAMMessage creates a new set of filtered events from an
+// AlertManager message.
+func NewFilteredEventsFromAMMessage(msg *alertmanager.Message) []*FilteredEvent {
+	var res []*FilteredEvent
+
+	for _, alert := range msg.Alerts {
+		if alert.Status != "firing" {
+			continue
+		}
+		res = append(res, &FilteredEvent{
+			Source:            AlertManager,
+			PodName:           alert.Labels["pod"],
+			PodNamespace:      alert.Labels["namespace"],
+			KubernetesReason:  alert.Labels["alertname"],
+			KubernetesMessage: alert.Annotations["summary"],
+			Severity:          EventSeverity(alert.Labels["severity"]),
+			Timestamp:         &alert.StartsAt,
+		})
 	}
 
 	return res

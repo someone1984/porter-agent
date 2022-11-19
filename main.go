@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/porter-dev/porter-agent/pkg/receiver"
 	"net/http"
 	"os"
 	"time"
@@ -43,6 +42,7 @@ import (
 	incidentHandlers "github.com/porter-dev/porter-agent/api/server/handlers/incident"
 	logHandlers "github.com/porter-dev/porter-agent/api/server/handlers/log"
 	statusHandlers "github.com/porter-dev/porter-agent/api/server/handlers/status"
+	"github.com/porter-dev/porter-agent/pkg/receiver"
 )
 
 var (
@@ -196,7 +196,11 @@ func main() {
 
 	r.Method("GET", "/incidents", incidentHandlers.NewListIncidentsHandler(conf))
 
-	r.Method("POST", "/incidents/alert", receiver.NewHTTP(conf))
+	// NOTE(muvaf): POST handler on "/incidents" path could be used to accept a
+	// Porter-specific payload. Since we can't control the payload coming from
+	// alert-manager, a separate path is used.
+	r.Method("POST", "/incidents/alert", receiver.NewAlertManagerWebhook(conf, detector))
+
 	r.Method("GET", "/incidents", incidentHandlers.NewListIncidentsHandler(conf))
 	r.Method("GET", "/incidents/{uid}", incidentHandlers.NewGetIncidentHandler(conf))
 	r.Method("GET", "/incidents/events", incidentHandlers.NewListIncidentEventsHandler(conf))

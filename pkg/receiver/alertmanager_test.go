@@ -33,7 +33,7 @@ func TestServeHTTP(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			serv := httptest.NewServer(NewHTTP(nil))
+			serv := httptest.NewServer(NewAlertManagerWebhook(nil))
 			defer func() { serv.Close() }()
 			resp, _ := http.Post(serv.URL, "application/json", bytes.NewReader(tc.args.body))
 			if diff := cmp.Diff(tc.want.code, resp.StatusCode); diff != "" {
