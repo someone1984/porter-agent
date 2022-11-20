@@ -4,18 +4,21 @@ import (
 	"encoding/json"
 	"github.com/porter-dev/porter-agent/api/server/config"
 	"github.com/porter-dev/porter-agent/pkg/event"
-	"github.com/porter-dev/porter-agent/pkg/incident"
 	"github.com/porter-dev/porter/api/server/shared/apierrors"
 	"net/http"
 
 	alertmanager "github.com/prometheus/alertmanager/notify/webhook"
 )
 
+type Detector interface {
+	DetectIncident(events []*event.FilteredEvent) error
+}
+
 // NewAlertManagerWebhook returns a new AlertManagerWebhook receiver.
-func NewAlertManagerWebhook(config *config.Config, detector *incident.IncidentDetector) *AlertManagerWebhook {
+func NewAlertManagerWebhook(config *config.Config, detector Detector) *AlertManagerWebhook {
 	return &AlertManagerWebhook{
 		config:   config,
-		incident: detector,
+		detector: detector,
 	}
 }
 
@@ -23,7 +26,7 @@ func NewAlertManagerWebhook(config *config.Config, detector *incident.IncidentDe
 // as incidents to be consumed by Porter.
 type AlertManagerWebhook struct {
 	config   *config.Config
-	incident *incident.IncidentDetector
+	detector Detector
 }
 
 // ServeHTTP handles the incoming alert-manager request.
@@ -34,7 +37,7 @@ func (h *AlertManagerWebhook) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	fe := event.NewFilteredEventsFromAMMessage(msg)
-	if err := h.incident.DetectIncident(fe); err != nil {
+	if err := h.detector.DetectIncident(fe); err != nil {
 		apierrors.HandleAPIError(h.config.Logger, h.config.Alerter, w, r, apierrors.NewErrInternal(err), true)
 		return
 	}

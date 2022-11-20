@@ -30,6 +30,8 @@ RUN CGOENABLED=1 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -a -o ./bin/agen
 # ----------------------
 FROM debian:bullseye-slim
 
+RUN apt-get update && apt-get install -y ca-certificates
+
 COPY --from=build-go /porter/bin/agent /porter/
 COPY --from=build-go /porter/bin/agent-cli /porter/
 

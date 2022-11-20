@@ -104,9 +104,26 @@ func (d *IncidentDetector) DetectIncident(es []*event.FilteredEvent) error {
 		})
 
 		ownerRef := alertedEvent.Owner
+		ownerKind := strings.ToLower(ownerRef.Kind)
 
-		switch strings.ToLower(ownerRef.Kind) {
-		case "deployment":
+		switch {
+		case alertedEvent.Source == event.AlertManager:
+			d.Logger.Info().Caller().Msgf("an alert is being fired for pod %s/%s, storing new incident", alertedEvent.PodNamespace, alertedEvent.PodName)
+			switch alertedEvent.Severity {
+			case event.EventSeverityCritical, event.EventSeverityHigh:
+				incident.Severity = types.SeverityCritical
+			default:
+				incident.Severity = types.SeverityNormal
+			}
+			incident.InvolvedObjectKind = types.InvolvedObjectPod
+			incident.InvolvedObjectName = alertedEvent.PodName
+			incident.InvolvedObjectNamespace = alertedEvent.PodNamespace
+
+			if err := d.saveIncident(incident, ownerRef, alertedEvent.PodName); err != nil {
+				return err
+			}
+			continue
+		case ownerKind == "deployment":
 			d.Logger.Info().Caller().Msgf("determing if deployment %s is failing", ownerRef.Name)
 
 			// if the deployment is in a failure state, create a high severity incident
@@ -126,7 +143,7 @@ func (d *IncidentDetector) DetectIncident(es []*event.FilteredEvent) error {
 
 				continue
 			}
-		case "job":
+		case ownerKind == "job":
 			d.Logger.Info().Caller().Msgf("job %s/%s is failing, storing new incident", ownerRef.Namespace, ownerRef.Name)
 
 			incident.Severity = types.SeverityNormal
