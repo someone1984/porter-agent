@@ -31,6 +31,7 @@ const (
 	InvalidStartCommand       EventMatchSummary = "The application has an invalid start command"
 	JobTimeout                EventMatchSummary = "The job timed out"
 	GenericApplicationRestart EventMatchSummary = "The application was restarted due to an error"
+	CPUSpike                  EventMatchSummary = "The CPU usage is unexpectedly over the average"
 )
 
 type EventMatch struct {
@@ -224,6 +225,18 @@ func init() {
 		},
 		ReasonMatch:    "Pending",
 		MessageMatch:   regexp.MustCompile("Pod has been pending for.*"),
+		IsPrimaryCause: true,
+	})
+
+	eventMatch1_20 = append(eventMatch1_20, EventMatch{
+		SourceMatch: event.AlertManager,
+		Summary:     CPUSpike,
+		DetailGenerator: func(e *event.FilteredEvent) string {
+			// in this case, we have constructed the kubernetes message
+			return e.KubernetesMessage
+		},
+		ReasonMatch:    "CPUSpike",
+		MessageMatch:   regexp.MustCompile("The CPU usage is unexpectedly over the average.*"),
 		IsPrimaryCause: true,
 	})
 

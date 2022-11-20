@@ -7,11 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/porter-dev/porter-agent/api/server/types"
+	alertmanagertmpl "github.com/prometheus/alertmanager/template"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/porter-dev/porter-agent/api/server/types"
 )
 
 type EventSeverity string
@@ -25,8 +26,9 @@ const (
 type EventSource string
 
 const (
-	Pod      EventSource = "pod"
-	K8sEvent EventSource = "event"
+	Pod          EventSource = "pod"
+	K8sEvent     EventSource = "event"
+	AlertManager EventSource = "alert-manager"
 )
 
 type FilteredEvent struct {
@@ -157,9 +159,9 @@ func (e *FilteredEvent) PopulateEventOwner(k8sClient kubernetes.Clientset) error
 		}
 
 		return nil
+	default:
+		return nil
 	}
-
-	return fmt.Errorf("unsupported owner reference kind")
 }
 
 func (e *FilteredEvent) Populate(k8sClient kubernetes.Clientset) error {
@@ -167,8 +169,9 @@ func (e *FilteredEvent) Populate(k8sClient kubernetes.Clientset) error {
 	if err := e.PopulateEventOwner(k8sClient); err != nil {
 		return err
 	}
-
-	e.ReleaseName = e.Pod.Labels["app.kubernetes.io/instance"]
+	if e.Owner == nil {
+		return nil
+	}
 
 	// query the owner reference to determine chart name
 	var chartLabel string
@@ -203,8 +206,11 @@ func (e *FilteredEvent) Populate(k8sClient kubernetes.Clientset) error {
 		}
 
 		chartLabel = job.Labels["helm.sh/chart"]
+	default:
+		return nil
 	}
 
+	e.ReleaseName = e.Pod.Labels["app.kubernetes.io/instance"]
 	if spl := strings.Split(chartLabel, "-"); len(spl) == 2 {
 		e.ChartName = spl[0]
 		e.ChartVersion = spl[1]
@@ -375,6 +381,34 @@ func NewFilteredEventsFromPod(pod *v1.Pod) []*FilteredEvent {
 				}
 			}
 		}
+	}
+
+	return res
+}
+
+// NewFilteredEventsFromAMMessage creates a new set of filtered events from an
+// AlertManager message.
+func NewFilteredEventsFromAMMessage(msg *alertmanagertmpl.Data) []*FilteredEvent {
+	var res []*FilteredEvent
+
+	for _, alert := range msg.Alerts {
+		// TODO(muvaf): The event and incident mechanisms in place do not support
+		// an event taking a while and then being resolved, i.e. alert-manager
+		// treats alerts not as a single point in time but something that starts
+		// as "firing" and ends as "resolved". We need to incorporate this into
+		// incident mechanisms.
+		if alert.Status != "firing" {
+			continue
+		}
+		res = append(res, &FilteredEvent{
+			Source:            AlertManager,
+			PodName:           alert.Labels["pod"],
+			PodNamespace:      alert.Labels["namespace"],
+			KubernetesReason:  alert.Labels["alertname"],
+			KubernetesMessage: alert.Annotations["summary"],
+			Severity:          EventSeverity(alert.Labels["severity"]),
+			Timestamp:         &alert.StartsAt,
+		})
 	}
 
 	return res

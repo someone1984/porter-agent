@@ -42,6 +42,7 @@ import (
 	incidentHandlers "github.com/porter-dev/porter-agent/api/server/handlers/incident"
 	logHandlers "github.com/porter-dev/porter-agent/api/server/handlers/log"
 	statusHandlers "github.com/porter-dev/porter-agent/api/server/handlers/status"
+	"github.com/porter-dev/porter-agent/pkg/receiver"
 )
 
 var (
@@ -194,6 +195,11 @@ func main() {
 	r.Method("GET", "/readyz", healthcheckHandlers.NewReadyzHandler(conf))
 
 	r.Method("GET", "/incidents", incidentHandlers.NewListIncidentsHandler(conf))
+
+	// NOTE(muvaf): POST handler on "/incidents" path could be used to accept a
+	// Porter-specific payload. Since we can't control the payload coming from
+	// alert-manager, a separate path is used.
+	r.Method("POST", "/incidents/alertmanager", receiver.NewAlertManagerWebhook(conf, detector))
 
 	r.Method("GET", "/incidents", incidentHandlers.NewListIncidentsHandler(conf))
 	r.Method("GET", "/incidents/{uid}", incidentHandlers.NewGetIncidentHandler(conf))

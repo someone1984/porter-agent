@@ -50,7 +50,7 @@ type IncidentDetector struct {
 //  5. Query for past events from this pod. If the event has been triggered a certain number of times
 //     (configurable) in a certain time window (configurable), create a warning incident for the user.
 func (d *IncidentDetector) DetectIncident(es []*event.FilteredEvent) error {
-	alertedEvents := make([]*event.FilteredEvent, 0)
+	filtered := make([]*event.FilteredEvent, 0)
 
 	for _, e := range es {
 		// if the event severity is low, do not alert
@@ -58,29 +58,30 @@ func (d *IncidentDetector) DetectIncident(es []*event.FilteredEvent) error {
 			continue
 		}
 
-		alertedEvents = append(alertedEvents, e)
+		filtered = append(filtered, e)
 	}
 
+	alertedEvents := make([]*event.FilteredEvent, 0)
+	for i := range filtered {
+		if err := filtered[i].Populate(*d.KubeClient); err != nil {
+			d.Logger.Error().Caller().Msgf("could not populate alerted event: %v", err)
+			return err
+		}
+		// NOTE(muvaf): We may get events from the pods that are not deployed
+		// by Porter, hence no recognized owner or Helm chart info. We need to
+		// ignore them instead of failing the whole set.
+		if filtered[i].Owner == nil {
+			d.Logger.Debug().Caller().Msgf("could not populate owner for the event of the pod %s/%s, skipping", filtered[i].PodNamespace, filtered[i].PodName)
+			continue
+		}
+		if filtered[i].ReleaseName == "" || filtered[i].ChartName == "" {
+			d.Logger.Debug().Caller().Msgf("could not populate chart info for the event of the pod %s/%s, skipping", filtered[i].PodNamespace, filtered[i].PodName)
+			continue
+		}
+		alertedEvents = append(alertedEvents, filtered[i])
+	}
 	if len(alertedEvents) == 0 {
 		return nil
-	}
-
-	// at this point, populate the owner reference for the first alerted event - we assume that
-	// all alerted events have the same owner
-	err := alertedEvents[0].Populate(*d.KubeClient)
-
-	if err != nil {
-		d.Logger.Error().Caller().Msgf("could not populate alerted event: %v", err)
-		return err
-	}
-
-	// populate all other alerted events with the same data
-	for i := range alertedEvents {
-		alertedEvents[i].Pod = alertedEvents[0].Pod
-		alertedEvents[i].Owner = alertedEvents[0].Owner
-		alertedEvents[i].ReleaseName = alertedEvents[0].ReleaseName
-		alertedEvents[i].ChartName = alertedEvents[0].ChartName
-		alertedEvents[i].ChartVersion = alertedEvents[0].ChartVersion
 	}
 
 	// get event matches
@@ -91,6 +92,7 @@ func (d *IncidentDetector) DetectIncident(es []*event.FilteredEvent) error {
 
 		// we only add match candidates which have a primary cause at the moment
 		if matchCandidate != nil && matchCandidate.IsPrimaryCause {
+			d.Logger.Debug().Caller().Msgf("the event for pod %s/%s got a match", e.PodNamespace, e.PodName)
 			matches[*e] = matchCandidate
 		}
 	}
@@ -104,9 +106,26 @@ func (d *IncidentDetector) DetectIncident(es []*event.FilteredEvent) error {
 		})
 
 		ownerRef := alertedEvent.Owner
+		ownerKind := strings.ToLower(ownerRef.Kind)
 
-		switch strings.ToLower(ownerRef.Kind) {
-		case "deployment":
+		switch {
+		case alertedEvent.Source == event.AlertManager:
+			d.Logger.Info().Caller().Msgf("an alert is being fired for pod %s/%s, storing new incident", alertedEvent.PodNamespace, alertedEvent.PodName)
+			switch alertedEvent.Severity {
+			case event.EventSeverityCritical, event.EventSeverityHigh:
+				incident.Severity = types.SeverityCritical
+			default:
+				incident.Severity = types.SeverityNormal
+			}
+			incident.InvolvedObjectKind = types.InvolvedObjectPod
+			incident.InvolvedObjectName = alertedEvent.PodName
+			incident.InvolvedObjectNamespace = alertedEvent.PodNamespace
+
+			if err := d.saveIncident(incident, ownerRef, alertedEvent.PodName); err != nil {
+				return err
+			}
+			continue
+		case ownerKind == "deployment":
 			d.Logger.Info().Caller().Msgf("determing if deployment %s is failing", ownerRef.Name)
 
 			// if the deployment is in a failure state, create a high severity incident
@@ -126,7 +145,7 @@ func (d *IncidentDetector) DetectIncident(es []*event.FilteredEvent) error {
 
 				continue
 			}
-		case "job":
+		case ownerKind == "job":
 			d.Logger.Info().Caller().Msgf("job %s/%s is failing, storing new incident", ownerRef.Namespace, ownerRef.Name)
 
 			incident.Severity = types.SeverityNormal

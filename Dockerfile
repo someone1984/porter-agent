@@ -2,10 +2,8 @@
 
 # Base Go environment
 # -------------------
-FROM golang:1.18-alpine as base
+FROM --platform=${BUILDPLATFORM} golang:1.19.3-bullseye as base
 WORKDIR /porter
-
-RUN apk update && apk add --no-cache gcc musl-dev git protoc
 
 COPY go.mod go.sum ./
 RUN go mod download
@@ -24,13 +22,15 @@ FROM base AS build-go
 # build proto files
 ARG version=production
 
-RUN go build -a -o ./bin/agent .
-RUN go build -a -o ./bin/agent-cli ./cli
+# cgo is enabled because sqlite package we use requires it.
+RUN CGOENABLED=1 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -a -o ./bin/agent .
+RUN CGOENABLED=1 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -a -o ./bin/agent-cli ./cli
 
 # Deployment environment
 # ----------------------
-FROM alpine
-RUN apk update && apk add --no-cache curl
+FROM debian:bullseye-slim
+
+RUN apt-get update && apt-get install -y ca-certificates
 
 COPY --from=build-go /porter/bin/agent /porter/
 COPY --from=build-go /porter/bin/agent-cli /porter/

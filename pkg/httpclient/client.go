@@ -44,9 +44,9 @@ func (c *Client) NotifyNew(incident *types.Incident) error {
 	err := c.post(fmt.Sprintf("/api/projects/%s/clusters/%s/incidents/notify_new", c.projectID, c.clusterID), incident)
 
 	if err != nil {
-		c.logger.Error().Caller().Msgf("could not notify new for incident %s: %v", incident.ID, err)
+		c.logger.Error().Caller().Msgf("could not notify new for incident %s of %s %s/%s: %v", incident.ID, incident.InvolvedObjectKind, incident.InvolvedObjectNamespace, incident.InvolvedObjectName, err)
 	} else {
-		c.logger.Info().Caller().Msgf("successfully notified new incident %s", incident.ID)
+		c.logger.Info().Caller().Msgf("successfully notified new incident %s of %s %s/%s", incident.ID, incident.InvolvedObjectKind, incident.InvolvedObjectNamespace, incident.InvolvedObjectName)
 	}
 
 	return err
@@ -56,9 +56,9 @@ func (c *Client) NotifyResolved(incident *types.Incident) error {
 	err := c.post(fmt.Sprintf("/api/projects/%s/clusters/%s/incidents/notify_resolved", c.projectID, c.clusterID), incident)
 
 	if err != nil {
-		c.logger.Error().Caller().Msgf("could not notify resolved for incident %s: %v", incident.ID, err)
+		c.logger.Error().Caller().Msgf("could not notify resolved for incident %s of %s %s/%s: %v", incident.ID, incident.InvolvedObjectKind, incident.InvolvedObjectNamespace, incident.InvolvedObjectName, err)
 	} else {
-		c.logger.Info().Caller().Msgf("successfully notified resolved incident %s", incident.ID)
+		c.logger.Info().Caller().Msgf("successfully notified resolved incident %s of %s %s/%s", incident.ID, incident.InvolvedObjectKind, incident.InvolvedObjectNamespace, incident.InvolvedObjectName)
 	}
 
 	return err
@@ -92,7 +92,7 @@ func (c *Client) post(path string, body interface{}) error {
 		bodyBytes, err := ioutil.ReadAll(res.Body)
 
 		if err == nil {
-			return fmt.Errorf("http client error, status code: %d. response body: %s", res.StatusCode, string(bodyBytes))
+			return fmt.Errorf("http client error, status code: %d. response body: %s. request body: %s", res.StatusCode, string(bodyBytes), string(jsonBody))
 		} else {
 			return fmt.Errorf("unknown error, status code: %d", res.StatusCode)
 		}
