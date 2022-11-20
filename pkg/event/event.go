@@ -7,12 +7,12 @@ import (
 	"strings"
 	"time"
 
+	alertmanagertmpl "github.com/prometheus/alertmanager/template"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/porter-dev/porter-agent/api/server/types"
-	alertmanager "github.com/prometheus/alertmanager/notify/webhook"
 )
 
 type EventSeverity string
@@ -384,10 +384,15 @@ func NewFilteredEventsFromPod(pod *v1.Pod) []*FilteredEvent {
 
 // NewFilteredEventsFromAMMessage creates a new set of filtered events from an
 // AlertManager message.
-func NewFilteredEventsFromAMMessage(msg *alertmanager.Message) []*FilteredEvent {
+func NewFilteredEventsFromAMMessage(msg *alertmanagertmpl.Data) []*FilteredEvent {
 	var res []*FilteredEvent
 
 	for _, alert := range msg.Alerts {
+		// TODO(muvaf): The event and incident mechanisms in place do not support
+		// an event taking a while and then being resolved, i.e. alert-manager
+		// treats alerts not as a single point in time but something that starts
+		// as "firing" and ends as "resolved". We need to incorporate this into
+		// incident mechanisms.
 		if alert.Status != "firing" {
 			continue
 		}

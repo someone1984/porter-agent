@@ -5,9 +5,8 @@ import (
 	"github.com/porter-dev/porter-agent/api/server/config"
 	"github.com/porter-dev/porter-agent/pkg/event"
 	"github.com/porter-dev/porter/api/server/shared/apierrors"
+	alertmanagertmpl "github.com/prometheus/alertmanager/template"
 	"net/http"
-
-	alertmanager "github.com/prometheus/alertmanager/notify/webhook"
 )
 
 type Detector interface {
@@ -29,9 +28,12 @@ type AlertManagerWebhook struct {
 	detector Detector
 }
 
-// ServeHTTP handles the incoming alert-manager request.
+// ServeHTTP handles the incoming alert-manager message.
 func (h *AlertManagerWebhook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	msg := &alertmanager.Message{}
+	// NOTE(muvaf): We do not use the original Message type because the data we
+	// need is under its embedded Data struct which has much less dependencies
+	// that would be needed to be vendored.
+	msg := &alertmanagertmpl.Data{}
 	if err := json.NewDecoder(r.Body).Decode(msg); err != nil {
 		apierrors.HandleAPIError(h.config.Logger, h.config.Alerter, w, r, apierrors.NewErrInternal(err), true)
 		return
