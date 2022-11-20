@@ -31,7 +31,7 @@ const (
 	InvalidStartCommand       EventMatchSummary = "The application has an invalid start command"
 	JobTimeout                EventMatchSummary = "The job timed out"
 	GenericApplicationRestart EventMatchSummary = "The application was restarted due to an error"
-	CPUSpike                  EventMatchSummary = "A spike in CPU usage has been detected"
+	CPUSpike                  EventMatchSummary = "The CPU usage is unexpectedly over the average"
 )
 
 type EventMatch struct {
@@ -236,7 +236,7 @@ func init() {
 			return e.KubernetesMessage
 		},
 		ReasonMatch:    "CPUSpike",
-		MessageMatch:   regexp.MustCompile("The CPU usage has spiked.*"),
+		MessageMatch:   regexp.MustCompile("The CPU usage is unexpectedly over the average.*"),
 		IsPrimaryCause: true,
 	})
 

@@ -56,13 +56,13 @@ func (r *IncidentResolver) Run() error {
 	}
 
 	for _, activeIncident := range activeIncidents {
-		r.Logger.Info().Caller().Msgf("checking whether incident %s is resolved", activeIncident.UniqueID)
+		r.Logger.Info().Caller().Msgf("checking whether incident %s of the %s %s/%s", activeIncident.UniqueID, activeIncident.InvolvedObjectKind, activeIncident.InvolvedObjectNamespace, activeIncident.InvolvedObjectName)
 
 		if r.isResolved(activeIncident) {
-			r.Logger.Info().Caller().Msgf("incident %s is resolved", activeIncident.UniqueID)
+			r.Logger.Info().Caller().Msgf("incident %s of the %s %s/%s is resolved", activeIncident.UniqueID, activeIncident.InvolvedObjectKind, activeIncident.InvolvedObjectNamespace, activeIncident.InvolvedObjectName)
 
 			if err := r.handleResolved(activeIncident); err != nil {
-				r.Logger.Error().Caller().Msgf("error while handling incident resolved: %v", err)
+				r.Logger.Error().Caller().Msgf("error while handling the resolution of the incident %s of the %s %s/%s: %v", activeIncident.UniqueID, activeIncident.InvolvedObjectKind, activeIncident.InvolvedObjectNamespace, activeIncident.InvolvedObjectName, err)
 
 				return err
 			}

@@ -159,9 +159,9 @@ func (e *FilteredEvent) PopulateEventOwner(k8sClient kubernetes.Clientset) error
 		}
 
 		return nil
+	default:
+		return nil
 	}
-
-	return fmt.Errorf("unsupported owner reference kind")
 }
 
 func (e *FilteredEvent) Populate(k8sClient kubernetes.Clientset) error {
@@ -169,8 +169,9 @@ func (e *FilteredEvent) Populate(k8sClient kubernetes.Clientset) error {
 	if err := e.PopulateEventOwner(k8sClient); err != nil {
 		return err
 	}
-
-	e.ReleaseName = e.Pod.Labels["app.kubernetes.io/instance"]
+	if e.Owner == nil {
+		return nil
+	}
 
 	// query the owner reference to determine chart name
 	var chartLabel string
@@ -205,8 +206,11 @@ func (e *FilteredEvent) Populate(k8sClient kubernetes.Clientset) error {
 		}
 
 		chartLabel = job.Labels["helm.sh/chart"]
+	default:
+		return nil
 	}
 
+	e.ReleaseName = e.Pod.Labels["app.kubernetes.io/instance"]
 	if spl := strings.Split(chartLabel, "-"); len(spl) == 2 {
 		e.ChartName = spl[0]
 		e.ChartVersion = spl[1]

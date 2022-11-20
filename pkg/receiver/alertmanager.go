@@ -2,11 +2,13 @@ package receiver
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/porter-dev/porter-agent/api/server/config"
 	"github.com/porter-dev/porter-agent/pkg/event"
 	"github.com/porter-dev/porter/api/server/shared/apierrors"
 	alertmanagertmpl "github.com/prometheus/alertmanager/template"
 	"net/http"
+	"strings"
 )
 
 type Detector interface {
@@ -38,6 +40,7 @@ func (h *AlertManagerWebhook) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		apierrors.HandleAPIError(h.config.Logger, h.config.Alerter, w, r, apierrors.NewErrInternal(err), true)
 		return
 	}
+	h.config.Logger.Debug().Msgf("received %d alerts: %s", len(msg.Alerts), stringAlerts(msg))
 	// NOTE(muvaf): We re-use the existing utilities regarding incidents but they
 	// are optimized for Kubernetes events and don't always match the nature of
 	// AlertManager alerts. For example, alerts start as "firing" and they
@@ -56,4 +59,12 @@ func (h *AlertManagerWebhook) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	return
+}
+
+func stringAlerts(data *alertmanagertmpl.Data) string {
+	var alerts string
+	for _, alert := range data.Alerts {
+		alerts += fmt.Sprintf("%s:%s for pod %s/%s ", alert.Labels["alertname"], alert.Status, alert.Labels["namespace"], alert.Labels["pod"])
+	}
+	return strings.TrimSpace(alerts)
 }
