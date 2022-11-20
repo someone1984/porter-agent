@@ -38,6 +38,18 @@ func (h *AlertManagerWebhook) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		apierrors.HandleAPIError(h.config.Logger, h.config.Alerter, w, r, apierrors.NewErrInternal(err), true)
 		return
 	}
+	// NOTE(muvaf): We re-use the existing utilities regarding incidents but they
+	// are optimized for Kubernetes events and don't always match the nature of
+	// AlertManager alerts. For example, alerts start as "firing" and they
+	// transition to "resolved" after a while rather than being fired once at a
+	// timestamp - which fits neither Incident nor Event model at their current
+	// shape.
+	//
+	// Every alert is treated as an event, which is the least disrupting change
+	// to incorporate them. The other candidate would've been to treat them as
+	// incidents but that would require a lot more changes to the existing
+	// incident mechanisms since we'd not want to re-implement IncidentDetector,
+	// hence refactor the common mechanics.
 	fe := event.NewFilteredEventsFromAMMessage(msg)
 	if err := h.detector.DetectIncident(fe); err != nil {
 		apierrors.HandleAPIError(h.config.Logger, h.config.Alerter, w, r, apierrors.NewErrInternal(err), true)

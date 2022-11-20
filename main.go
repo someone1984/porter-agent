@@ -199,7 +199,7 @@ func main() {
 	// NOTE(muvaf): POST handler on "/incidents" path could be used to accept a
 	// Porter-specific payload. Since we can't control the payload coming from
 	// alert-manager, a separate path is used.
-	r.Method("POST", "/incidents/alert", receiver.NewAlertManagerWebhook(conf, detector))
+	r.Method("POST", "/incidents/alertmanager", receiver.NewAlertManagerWebhook(conf, detector))
 
 	r.Method("GET", "/incidents", incidentHandlers.NewListIncidentsHandler(conf))
 	r.Method("GET", "/incidents/{uid}", incidentHandlers.NewGetIncidentHandler(conf))
